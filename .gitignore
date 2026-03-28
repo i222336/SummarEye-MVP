@@ -1,0 +1,19 @@
+# Dependencies
+node_modules
+__pycache__
+venv/
+env/
+.env
+
+# Models
+*.pt
+
+# Uploads and Processed files
+/backend/uploads/*
+/backend/processed/*
+!/backend/uploads/.gitkeep
+!/backend/processed/.gitkeep
+
+# IDEs and OS files
+.vscode
+.DS_Store
