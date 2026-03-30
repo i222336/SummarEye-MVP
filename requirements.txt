@@ -5,3 +5,4 @@ ultralytics
 opencv-python
 sqlalchemy
 aiofiles
+onnxruntime

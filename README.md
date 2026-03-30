@@ -45,3 +45,17 @@ SummarEye AI is a web application that analyzes uploaded CCTV footage using AI (
    npm run dev
    ```
    The frontend will run at `http://localhost:5173`.
+
+### 4. Custom YOLO Models
+This project uses two models for detection:
+1. `yolov8n.pt` (Standard Person/Dog - downloads automatically)
+2. `All_weapon.pt` (Custom Weapon Model - **must be placed manually in the `/models/` folder**)
+
+### API Endpoints for Frontend (Module 04)
+- **`POST /api/upload`**: Upload tracking video. Returns `{ "status": "success", "video_id": "...", ... }`
+- **`POST /api/analyse/{id}`**: Triggers AI detection in background.
+- **`GET /api/videos/{id}`**: Polling endpoint. Check `status` ('pending', 'processing', 'done', 'error').
+- **`GET /api/videos/{id}/events`**: Returns list of all timeline events.
+- **`GET /api/videos/{id}/alerts`**: Returns only events where `flagged == true`.
+- **`GET /api/clips/{event_id}`**: Streams the `.mp4` video clip of the event.
+- **`GET /api/thumbnails/{event_id}`**: Returns the `.jpg` thumbnail.
