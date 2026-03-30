@@ -50,6 +50,7 @@ SummarEye AI is a web application that analyzes uploaded CCTV footage using AI (
 This project uses two models for detection:
 1. `yolov8n.pt` (Standard Person/Dog - downloads automatically)
 2. `All_weapon.pt` (Custom Weapon Model - **must be placed manually in the `/models/` folder**)
+   - **Download Link:** [HuggingFace - weapon_detection](https://huggingface.co/Shantanukadam/weapon_detection)
 
 ### API Endpoints for Frontend (Module 04)
 - **`POST /api/upload`**: Upload tracking video. Returns `{ "status": "success", "video_id": "...", ... }`
