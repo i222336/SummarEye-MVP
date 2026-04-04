@@ -74,8 +74,8 @@ def process_video(video_id: str, db: Session):
         db.commit()
         logger.info(f"[{video_id}] Video properties: {total_frames:.0f} frames, {fps:.1f} FPS, {video_duration:.1f}s duration")
 
-        # Step 2: Detect and Aggregate Events at 2 FPS
-        frame_interval = max(int(fps / 2), 1)
+        # Step 2: Detect and Aggregate Events at 5 FPS
+        frame_interval = max(int(fps / 5), 1)
 
         events_data = []
         current_event = None
@@ -104,10 +104,11 @@ def process_video(video_id: str, db: Session):
             conf_sum = 0
             count = 0
 
-            # Check standard COCO model (Class 0 = Person only)
+            # Check standard COCO model (Person and Animals)
+            target_classes = {0, 15, 16, 17, 18, 19, 20, 21, 22, 23}
             for box in res_std[0].boxes:
                 cls_id = int(box.cls[0])
-                if cls_id == 0 and float(box.conf[0]) >= 0.5:
+                if cls_id in target_classes and float(box.conf[0]) >= 0.5:
                     person_detected = True
                     conf_sum += float(box.conf[0])
                     count += 1
@@ -132,8 +133,8 @@ def process_video(video_id: str, db: Session):
                 else:
                     current_event["has_weapon"] = current_event.get("has_weapon", False) or weapon_detected
 
-                    # Merge if within 60 seconds
-                    if timestamp_s - current_event["end_time"] > 60:
+                    # Merge if within 5 seconds
+                    if timestamp_s - current_event["end_time"] > 5:
                         events_data.append(current_event)
                         current_event = {
                             "start_time": timestamp_s,
@@ -161,8 +162,9 @@ def process_video(video_id: str, db: Session):
             event_id = str(uuid.uuid4())
             start_s = e["start_time"]
 
-            # Ensure clip has at minimum 1s duration visually
-            end_s = e["end_time"] if e["end_time"] > start_s else start_s + 1.0
+            # Add 2 seconds padding to ensure we don't cut off action too tightly
+            start_s = max(0.0, e["start_time"] - 2.0)
+            end_s = min(video_duration, e["end_time"] + 2.0)
 
             duration = end_s - start_s
             avg_conf = sum(e["confidences"]) / len(e["confidences"])
@@ -199,6 +201,7 @@ def process_video(video_id: str, db: Session):
             mid_frame_idx = start_frame + (end_frame - start_frame) // 2
             thumbnail_saved = False
 
+            target_classes_list = [0, 15, 16, 17, 18, 19, 20, 21, 22, 23]
             f_idx = start_frame
             while f_idx <= end_frame:
                 ret, frame = cap.read()
@@ -206,10 +209,12 @@ def process_video(video_id: str, db: Session):
                     break
                 
                 # Re-run inference just on this extraction frame to get visually drawn boxes
-                res_w = model_weapon(frame, verbose=False)
+                res_w = model_weapon(frame, conf=0.5, verbose=False)
+                res_s = model_std(frame, classes=target_classes_list, conf=0.5, verbose=False)
                 
-                # Plot boxes: draw ONLY weapon boxes
-                plotted_frame = res_w[0].plot(img=frame)
+                # Plot boxes: draw BOTH standard and weapon boxes
+                plotted_frame = res_s[0].plot(img=frame)
+                plotted_frame = res_w[0].plot(img=plotted_frame)
                 
                 out.write(plotted_frame)
 
@@ -226,8 +231,10 @@ def process_video(video_id: str, db: Session):
                 cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
                 ret, frame = cap.read()
                 if ret:
-                    res_w = model_weapon(frame, verbose=False)
-                    plotted = res_w[0].plot(img=frame)
+                    res_w = model_weapon(frame, conf=0.5, verbose=False)
+                    res_s = model_std(frame, classes=target_classes_list, conf=0.5, verbose=False)
+                    plotted = res_s[0].plot(img=frame)
+                    plotted = res_w[0].plot(img=plotted)
                     cv2.imwrite(thumb_path, plotted)
                     thumbnail_saved = True
 

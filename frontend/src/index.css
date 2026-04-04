@@ -1,7 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── Base Hacker Theme ── */
 body {
-  @apply bg-slate-900 text-slate-100 min-h-screen font-sans antialiased;
+  @apply bg-black text-green-400 min-h-screen antialiased;
+  font-family: 'Fira Code', monospace;
+}
+
+/* ── Scrollbar Styling ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+::-webkit-scrollbar-thumb {
+  background: #00ff41;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00cc33;
+}
+
+/* ── Utility Classes ── */
+.glow-green {
+  box-shadow: 0 0 10px rgba(0,255,65,0.3), 0 0 20px rgba(0,255,65,0.1);
+}
+
+.glow-green-strong {
+  box-shadow: 0 0 15px rgba(0,255,65,0.5), 0 0 40px rgba(0,255,65,0.2);
+}
+
+.glow-red {
+  box-shadow: 0 0 10px rgba(255,0,64,0.3), 0 0 20px rgba(255,0,64,0.1);
+}
+
+.text-glow-green {
+  text-shadow: 0 0 10px rgba(0,255,65,0.5), 0 0 20px rgba(0,255,65,0.3);
+}
+
+.text-glow-red {
+  text-shadow: 0 0 10px rgba(255,0,64,0.5), 0 0 20px rgba(255,0,64,0.3);
+}
+
+/* Terminal-style blinking cursor */
+.terminal-cursor::after {
+  content: '█';
+  animation: blink-cursor 0.75s step-end infinite;
+  color: #00ff41;
+}
+
+@keyframes blink-cursor {
+  from, to { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Scanline overlay effect — use as a pseudo-element */
+.scanline-overlay::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 255, 65, 0.03) 0px,
+    rgba(0, 255, 65, 0.03) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Grid background pattern */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(0,255,65,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,65,0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
 }

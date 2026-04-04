@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import init_db, get_db, Video, Event
 from sqlalchemy.orm import Session
 from detection import start_video_processing
+from sqlalchemy import func
+from datetime import datetime, timedelta
 import os
 import uuid
 import aiofiles
@@ -45,6 +47,79 @@ app.add_middleware(
 def health_check():
     """Health check endpoint — returns 200 if server is running."""
     return {"status": "ok", "version": "1.0.0"}
+
+@app.get("/api/analytics")
+def get_analytics(db: Session = Depends(get_db)):
+    """Global analytics endpoint — aggregate stats across all videos and events."""
+    # Total counts
+    total_videos = db.query(func.count(Video.id)).scalar() or 0
+    total_events = db.query(func.count(Event.id)).scalar() or 0
+    total_alerts = db.query(func.count(Event.id)).filter(Event.flagged == True).scalar() or 0
+    total_footage_s = db.query(func.sum(Video.duration_s)).filter(Video.duration_s != None).scalar() or 0.0
+    avg_confidence = db.query(func.avg(Event.confidence)).scalar() or 0.0
+
+    # Status breakdown
+    status_counts = db.query(Video.status, func.count(Video.id)).group_by(Video.status).all()
+    status_breakdown = {s: c for s, c in status_counts}
+
+    # Label breakdown
+    label_counts = db.query(Event.label, func.count(Event.id)).group_by(Event.label).all()
+    label_breakdown = {l: c for l, c in label_counts}
+
+    # Daily alerts (last 30 days)
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    daily_alerts = []
+    all_events_recent = (
+        db.query(Event)
+        .filter(Event.created_at >= thirty_days_ago)
+        .order_by(Event.created_at.asc())
+        .all()
+    )
+
+    # Group by date
+    date_map = {}
+    for evt in all_events_recent:
+        d = evt.created_at.strftime("%Y-%m-%d") if evt.created_at else "unknown"
+        if d not in date_map:
+            date_map[d] = {"date": d, "events": 0, "alerts": 0}
+        date_map[d]["events"] += 1
+        if evt.flagged:
+            date_map[d]["alerts"] += 1
+
+    daily_alerts = sorted(date_map.values(), key=lambda x: x["date"])
+
+    # Recent alerts (last 10 flagged events)
+    recent_alert_records = (
+        db.query(Event, Video.filename)
+        .join(Video, Event.video_id == Video.id)
+        .filter(Event.flagged == True)
+        .order_by(Event.created_at.desc())
+        .limit(10)
+        .all()
+    )
+
+    recent_alerts = [
+        {
+            "id": evt.id,
+            "video_filename": fname,
+            "label": evt.label,
+            "confidence": evt.confidence,
+            "created_at": evt.created_at.isoformat() if evt.created_at else None,
+        }
+        for evt, fname in recent_alert_records
+    ]
+
+    return {
+        "total_videos": total_videos,
+        "total_events": total_events,
+        "total_alerts": total_alerts,
+        "total_footage_s": round(total_footage_s, 1),
+        "avg_confidence": round(avg_confidence, 3),
+        "status_breakdown": status_breakdown,
+        "label_breakdown": label_breakdown,
+        "daily_alerts": daily_alerts,
+        "recent_alerts": recent_alerts,
+    }
 
 @app.post("/api/upload", status_code=201)
 async def upload_video(video: UploadFile = File(...), db: Session = Depends(get_db)):

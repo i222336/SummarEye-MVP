@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import Navbar from '../components/Navbar';
+import NeuralNetworkAnimation from '../components/NeuralNetworkAnimation';
 
 export default function DashboardPage() {
   const [searchParams] = useSearchParams();
@@ -34,12 +36,12 @@ export default function DashboardPage() {
     setTimeout(() => setToast(null), 5000);
   };
 
-  // Helper to detect network errors vs HTTP errors
+  // Helper to detect network errors
   const isNetworkError = (error) => {
     return error instanceof TypeError && error.message === 'Failed to fetch';
   };
 
-  // API Fetches — all with proper error handling
+  // API Fetches
   const fetchVideos = async () => {
     try {
       const res = await fetch('http://localhost:8000/api/videos');
@@ -50,7 +52,7 @@ export default function DashboardPage() {
     } catch (e) {
       console.error('fetchVideos error:', e);
       if (isNetworkError(e)) {
-        showToast('Cannot connect to server. Make sure the app is running.', 'error');
+        showToast('CONNECTION_REFUSED: Backend unreachable.', 'error');
       }
     }
   };
@@ -65,7 +67,7 @@ export default function DashboardPage() {
     } catch (e) {
       console.error('fetchVideoDetails error:', e);
       if (isNetworkError(e)) {
-        showToast('Cannot connect to server. Make sure the app is running.', 'error');
+        showToast('CONNECTION_REFUSED: Backend unreachable.', 'error');
       }
     }
     return null;
@@ -86,7 +88,7 @@ export default function DashboardPage() {
     } catch (e) {
       console.error('fetchEventsAndAlerts error:', e);
       if (isNetworkError(e)) {
-        showToast('Cannot connect to server. Make sure the app is running.', 'error');
+        showToast('CONNECTION_REFUSED: Backend unreachable.', 'error');
       }
     }
   };
@@ -95,11 +97,11 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`http://localhost:8000/api/analyse/${id}`, { method: 'POST' });
       if (res.ok) {
-        showToast('Analysis started', 'success');
+        showToast('> Analysis pipeline initiated', 'success');
         const updatedVideo = await fetchVideoDetails(id);
         if (updatedVideo) {
           setSelectedVideo(updatedVideo);
-          fetchVideos(); // Refresh sidebar
+          fetchVideos();
         }
       } else {
         const errData = await res.json().catch(() => ({}));
@@ -108,7 +110,7 @@ export default function DashboardPage() {
     } catch (e) {
       console.error('startAnalysis error:', e);
       if (isNetworkError(e)) {
-        showToast('Cannot connect to server. Make sure the app is running.', 'error');
+        showToast('CONNECTION_REFUSED: Backend unreachable.', 'error');
       } else {
         showToast('Error starting analysis', 'error');
       }
@@ -116,17 +118,17 @@ export default function DashboardPage() {
   };
 
   const deleteVideo = async (id) => {
-    if (!window.confirm("Are you sure you want to permanently delete this video and its alerts? This cannot be undone.")) return;
+    if (!window.confirm("CONFIRM: Permanently delete this video and all its analysis data?")) return;
 
     try {
       const res = await fetch(`http://localhost:8000/api/videos/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        showToast('Video deleted successfully', 'success');
+        showToast('> Video purged from system', 'success');
         setSelectedVideoId(null);
         setSelectedVideo(null);
         setEvents([]);
         setAlerts([]);
-        fetchVideos(); // Refresh sidebar
+        fetchVideos();
       } else {
         const errData = await res.json().catch(() => ({}));
         showToast(errData.error || 'Failed to delete video', 'error');
@@ -134,7 +136,7 @@ export default function DashboardPage() {
     } catch (e) {
       console.error('deleteVideo error:', e);
       if (isNetworkError(e)) {
-        showToast('Cannot connect to server. Make sure the app is running.', 'error');
+        showToast('CONNECTION_REFUSED: Backend unreachable.', 'error');
       } else {
         showToast('Failed to delete video', 'error');
       }
@@ -187,9 +189,9 @@ export default function DashboardPage() {
 
             if (updated.status === 'done') {
               await fetchEventsAndAlerts(vidId);
-              showToast('Analysis complete — events detected!', 'success');
+              showToast(`> Analysis complete — ${updated.event_count || 0} event(s) detected`, 'success');
             } else if (updated.status === 'error') {
-              showToast('Analysis failed', 'error');
+              showToast('> Analysis failed', 'error');
             }
           }
         }
@@ -198,7 +200,7 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [selectedVideo]);
 
-  // Handle "View Clip" click — check for null clip_path
+  // View clip handler
   const handleViewClip = (event) => {
     if (!event.clip_path) {
       showToast('Clip not yet available', 'error');
@@ -208,32 +210,33 @@ export default function DashboardPage() {
     setModalEvent(event);
   };
 
-  // Thumbnail Placeholder component — shown when thumbnail fails to load
+  // Thumbnail Placeholder
   const ThumbnailPlaceholder = () => (
-    <div className="w-full h-full flex items-center justify-center bg-slate-700">
-      <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div className="w-full h-full flex items-center justify-center bg-neon-panel border border-neon-border">
+      <svg className="w-6 h-6 text-neon-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
       </svg>
     </div>
   );
 
-  // UI Components
+  // Event Card Component
   const EventCard = ({ event, isAlert }) => {
     const [thumbFailed, setThumbFailed] = useState(false);
 
-    let confidenceClass = 'bg-red-900/50 text-red-400 border-red-500/50';
-    let confText = `${Math.round(event.confidence * 100)}% — verify manually`;
+    let confidenceClass = 'border-hacker-red text-hacker-red';
+    let confText = `${Math.round(event.confidence * 100)}% — verify`;
     if (event.confidence >= 0.8) {
-      confidenceClass = 'bg-green-900/50 text-green-400 border-green-500/50';
-      confText = `${Math.round(event.confidence * 100)}% confident`;
+      confidenceClass = 'border-neon-green text-neon-green';
+      confText = `${Math.round(event.confidence * 100)}%`;
     } else if (event.confidence >= 0.5) {
-      confidenceClass = 'bg-yellow-900/50 text-yellow-400 border-yellow-500/50';
-      confText = `${Math.round(event.confidence * 100)}% confident`;
+      confidenceClass = 'border-hacker-yellow text-hacker-yellow';
+      confText = `${Math.round(event.confidence * 100)}%`;
     }
 
     return (
-      <div className={`p-4 rounded-lg bg-slate-800 border ${isAlert ? 'border-l-4 border-l-red-500 border-slate-700 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'border-slate-700'} flex gap-4 mt-4`}>
-        <div className="flex-shrink-0 w-24 h-20 bg-slate-900 rounded overflow-hidden relative">
+      <div className={`p-4 rounded bg-neon-panel border ${isAlert ? 'border-l-4 border-l-hacker-red border-neon-border glow-red' : 'border-neon-border'} flex gap-4 mt-3`}>
+        {/* Thumbnail */}
+        <div className="flex-shrink-0 w-24 h-20 bg-black rounded overflow-hidden">
           {thumbFailed ? (
             <ThumbnailPlaceholder />
           ) : (
@@ -245,38 +248,40 @@ export default function DashboardPage() {
             />
           )}
         </div>
+        {/* Details */}
         <div className="flex-1 flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <div>
               {isAlert ? (
-                <div className="text-red-500 font-bold text-sm mb-1 animate-pulse flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-red-500"></span> {event.label === 'weapon_detected' ? 'WEAPON DETECTED' : 'LOITERING ALERT'}
+                <div className={`font-bold text-xs mb-1 animate-pulse flex items-center gap-2 ${event.label === 'weapon_detected' ? 'text-hacker-red' : 'text-hacker-red'}`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-hacker-red"></span>
+                  {event.label === 'weapon_detected' ? 'WEAPON DETECTED' : 'LOITERING ALERT'}
                 </div>
               ) : (
-                <div className="text-slate-400 text-sm mb-1 font-semibold uppercase tracking-wider">
+                <div className="text-neon-dim text-xs mb-1 font-bold uppercase tracking-wider">
                   Person Detected
                 </div>
               )}
-              <div className="text-white">
-                Timestamp: <span className="font-semibold text-slate-200">at {formatTime(event.start_time)}</span>
+              <div className="text-neon-green text-sm">
+                <span className="text-neon-dark">time:</span> {formatTime(event.start_time)}
               </div>
               {isAlert && (
-                <div className="text-red-400 text-sm mt-1">
-                  Duration: {formatMinutes(event.duration_s)} minutes
+                <div className="text-hacker-red text-xs mt-1">
+                  duration: {formatMinutes(event.duration_s)}m
                 </div>
               )}
             </div>
 
-            <div className={`px-2 py-1 text-xs border rounded-md ${confidenceClass}`} title={confText}>
+            <div className={`px-2 py-0.5 text-[10px] border rounded font-bold ${confidenceClass}`}>
               {confText}
             </div>
           </div>
           <div className="mt-2 text-right">
             <button
               onClick={() => handleViewClip(event)}
-              className="px-4 py-2 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600 hover:text-white rounded text-sm transition-colors font-medium border border-indigo-500/30"
+              className="px-3 py-1.5 bg-black text-neon-green hover:bg-neon-green hover:text-black rounded text-xs transition-all duration-200 font-bold border border-neon-border hover:border-neon-green"
             >
-              View Clip
+              {'>'} View Clip
             </button>
           </div>
         </div>
@@ -284,58 +289,47 @@ export default function DashboardPage() {
     );
   };
 
+  // Status badge
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'done': return <span className="bg-green-900/50 text-green-400 border border-green-700/50 px-2 py-0.5 rounded text-xs ml-auto">Done</span>;
-      case 'processing': return <span className="bg-indigo-900/50 text-indigo-400 border border-indigo-700/50 px-2 py-0.5 rounded text-xs ml-auto flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>Processing</span>;
-      case 'error': return <span className="bg-red-900/50 text-red-400 border border-red-700/50 px-2 py-0.5 rounded text-xs ml-auto">Error</span>;
-      case 'pending': return <span className="bg-slate-700 text-slate-300 border border-slate-600 px-2 py-0.5 rounded text-xs ml-auto">Pending</span>;
+      case 'done': return <span className="border border-neon-green text-neon-green px-2 py-0.5 rounded text-[10px] ml-auto font-bold">DONE</span>;
+      case 'processing': return <span className="border border-hacker-yellow text-hacker-yellow px-2 py-0.5 rounded text-[10px] ml-auto font-bold flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-hacker-yellow animate-pulse"></span>PROC</span>;
+      case 'error': return <span className="border border-hacker-red text-hacker-red px-2 py-0.5 rounded text-[10px] ml-auto font-bold">ERR</span>;
+      case 'pending': return <span className="border border-neon-dark text-neon-dark px-2 py-0.5 rounded text-[10px] ml-auto font-bold">PEND</span>;
       default: return null;
     }
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-900 text-slate-300 font-sans">
+    <div className="flex flex-col min-h-screen bg-black text-neon-dim font-mono">
+      <Navbar />
+
       {/* Toast Notification */}
       {toast && (
-        <div className={`fixed top-4 right-4 px-4 py-3 rounded-lg shadow-xl border z-50 animate-in slide-in-from-top flex items-center gap-2 ${toast.type === 'success' ? 'bg-green-900 border-green-600 text-green-100' : 'bg-red-900 border-red-600 text-red-100'
-          }`}>
+        <div className={`fixed top-16 right-4 px-4 py-3 rounded border z-50 text-xs font-mono ${
+          toast.type === 'success'
+            ? 'bg-black border-neon-green text-neon-green glow-green'
+            : 'bg-black border-hacker-red text-hacker-red glow-red'
+        }`}>
           {toast.message}
         </div>
       )}
 
-      {/* Top Header */}
-      <header className="h-16 border-b border-slate-800 bg-slate-900 flex items-center justify-between px-6 z-10 sticky top-0">
-        <div className="flex items-center gap-3">
-          <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-          </svg>
-          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-            SummarEye AI
-          </h1>
-        </div>
-        <nav>
-          <Link to="/upload" className="text-sm font-medium text-slate-400 hover:text-white bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700 transition">
-            Upload New Video
-          </Link>
-        </nav>
-      </header>
-
-      <div className="flex flex-1 overflow-hidden h-[calc(100vh-4rem)]">
+      <div className="flex flex-1 overflow-hidden h-[calc(100vh-3.5rem)]">
         {/* Left Sidebar */}
-        <aside className="w-72 bg-slate-800/50 border-r border-slate-800 flex flex-col overflow-y-auto">
-          <div className="p-4 border-b border-slate-700/50 bg-slate-900/50 sticky top-0">
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Footage Library</h2>
+        <aside className="w-72 bg-neon-panel border-r border-neon-border flex flex-col overflow-y-auto">
+          <div className="p-4 border-b border-neon-border bg-black sticky top-0">
+            <h2 className="text-[10px] font-bold text-neon-green uppercase tracking-widest">{'>'} Footage Library</h2>
           </div>
 
           {isInitialLoad ? (
-            <div className="p-4 space-y-4">
-              {[1, 2, 3].map(i => <div key={i} className="h-12 bg-slate-700/50 animate-pulse rounded"></div>)}
+            <div className="p-4 space-y-3">
+              {[1, 2, 3].map(i => <div key={i} className="h-12 bg-neon-dark/20 animate-pulse rounded border border-neon-border"></div>)}
             </div>
           ) : (
             <div className="flex flex-col p-2 gap-1">
               {videos.length === 0 ? (
-                <div className="p-4 text-sm text-slate-500 text-center">No footage uploaded yet.</div>
+                <div className="p-4 text-xs text-neon-dark text-center">No footage uploaded.</div>
               ) : (
                 videos.map(v => {
                   const vidId = v.video_id || v.id;
@@ -343,13 +337,17 @@ export default function DashboardPage() {
                     <button
                       key={vidId}
                       onClick={() => handleSelectVideo(vidId)}
-                      className={`flex flex-col text-left p-3 rounded-lg transition-colors ${selectedVideoId === vidId ? 'bg-indigo-900/40 border border-indigo-700/50' : 'hover:bg-slate-700/50 border border-transparent'}`}
+                      className={`flex flex-col text-left p-3 rounded transition-colors ${
+                        selectedVideoId === vidId
+                          ? 'bg-neon-dark/30 border border-neon-green glow-green'
+                          : 'hover:bg-neon-dark/10 border border-transparent'
+                      }`}
                     >
                       <div className="flex items-start w-full gap-2">
-                        <span className="font-medium text-sm text-slate-200 truncate flex-1" title={v.filename}>{v.filename}</span>
+                        <span className="font-medium text-xs text-neon-green truncate flex-1" title={v.filename}>{v.filename}</span>
                         {getStatusBadge(v.status)}
                       </div>
-                      <span className="text-xs text-slate-500 mt-1">{new Date(v.upload_time).toLocaleDateString()}</span>
+                      <span className="text-[10px] text-neon-dark mt-1">{new Date(v.upload_time).toLocaleDateString()}</span>
                     </button>
                   );
                 })
@@ -359,169 +357,154 @@ export default function DashboardPage() {
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto bg-[#0a0f1a]">
+        <main className="flex-1 overflow-y-auto bg-black relative">
+          <div className="absolute inset-0 grid-bg pointer-events-none opacity-50"></div>
+
           {!selectedVideoId ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <svg className="w-16 h-16 text-slate-700 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-              </svg>
-              <h2 className="text-2xl font-bold text-slate-400 mb-2">No footage selected</h2>
-              <p className="text-slate-500 max-w-md">
-                Select a video from the sidebar library to view its analysis, or upload a new video to get started.
+            <div className="flex flex-col items-center justify-center h-full text-center relative z-10">
+              <div className="text-neon-dark text-4xl mb-4 font-bold">{'///'}</div>
+              <h2 className="text-lg font-bold text-neon-dim mb-2">No footage selected</h2>
+              <p className="text-neon-dark text-xs max-w-md">
+                Select a video from the library to view its analysis results.
               </p>
-              <Link to="/upload" className="mt-6 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium transition">
-                Upload Video
+              <Link to="/upload" className="mt-6 px-6 py-2 border border-neon-green text-neon-green hover:bg-neon-green hover:text-black rounded text-xs font-bold uppercase tracking-wider transition-all">
+                {'>'} Upload Video
               </Link>
             </div>
           ) : !selectedVideo ? (
-            <div className="flex flex-col items-center justify-center h-full">
-              <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="flex flex-col items-center justify-center h-full relative z-10">
+              <div className="w-8 h-8 border-2 border-neon-green border-t-transparent rounded-full animate-spin"></div>
             </div>
           ) : (
-            <div className="p-8 max-w-5xl mx-auto pb-24">
+            <div className="p-8 max-w-5xl mx-auto pb-24 relative z-10">
+              {/* Video Header */}
               <div className="mb-8 flex justify-between items-start">
                 <div>
-                  <h2 className="text-3xl font-extrabold text-white mb-2">{selectedVideo.filename}</h2>
-                  <div className="flex items-center gap-4 text-sm text-slate-400">
-                    <span>Uploaded: {new Date(selectedVideo.upload_time).toLocaleString()}</span>
-                    <span>•</span>
-                    <span>ID: {(selectedVideo.video_id || selectedVideo.id || 'N/A').split('-')[0]}...</span>
+                  <h2 className="text-xl font-bold text-neon-green text-glow-green mb-1">{selectedVideo.filename}</h2>
+                  <div className="flex items-center gap-3 text-[10px] text-neon-dark">
+                    <span>uploaded: {new Date(selectedVideo.upload_time).toLocaleString()}</span>
+                    <span>|</span>
+                    <span>id: {(selectedVideo.video_id || selectedVideo.id || 'N/A').split('-')[0]}...</span>
                   </div>
                 </div>
                 <button
                   onClick={() => deleteVideo(selectedVideo.video_id || selectedVideo.id)}
-                  className="px-4 py-2 border border-red-900 bg-red-900/20 text-red-400 hover:bg-red-800 hover:text-white rounded-lg transition-colors flex items-center gap-2 text-sm font-medium shadow-sm"
+                  className="px-3 py-1.5 border border-hacker-red text-hacker-red hover:bg-hacker-red hover:text-black rounded text-xs font-bold transition-all flex items-center gap-2"
                   title="Permanently delete this video"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                  Delete Video
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                  Delete
                 </button>
               </div>
 
+              {/* Pending State */}
               {selectedVideo.status === 'pending' && (
-                <div className="border border-slate-700 bg-slate-800 rounded-xl p-12 text-center shadow-lg">
-                  <svg className="w-16 h-16 text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                  <h3 className="text-xl font-semibold text-white mb-2">Click Analyse to process this video</h3>
-                  <p className="text-slate-400 mb-6">Our AI will review the footage, detect people, and flag any loitering activity.</p>
-                  <button onClick={() => startAnalysis(selectedVideo.video_id || selectedVideo.id)} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-md transition-all duration-200">
-                    Analyse Footage
+                <div className="border border-neon-border bg-neon-panel rounded-xl p-12 text-center">
+                  <div className="text-neon-dark text-4xl mb-4">{'[▶]'}</div>
+                  <h3 className="text-lg font-bold text-neon-green mb-2">Ready for Analysis</h3>
+                  <p className="text-neon-dim text-xs mb-6">Initiate the AI detection pipeline to scan this footage.</p>
+                  <button
+                    onClick={() => startAnalysis(selectedVideo.video_id || selectedVideo.id)}
+                    className="px-8 py-3 border-2 border-neon-green text-neon-green font-bold text-sm uppercase tracking-wider rounded hover:bg-neon-green hover:text-black transition-all duration-300 glow-green"
+                  >
+                    {'>'} Analyse Footage
                   </button>
                 </div>
               )}
 
+              {/* Processing State — NEURAL NETWORK ANIMATION */}
               {selectedVideo.status === 'processing' && (
-                <div className="border border-indigo-900/50 bg-indigo-900/10 rounded-xl p-16 text-center">
-                  <div className="relative w-20 h-20 mx-auto mb-6">
-                    <div className="absolute inset-0 border-4 border-indigo-500/30 rounded-full"></div>
-                    <div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <svg className="absolute inset-0 m-auto w-8 h-8 text-indigo-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                    </svg>
-                  </div>
-                  <h3 className="text-2xl font-bold text-white mb-2 animate-pulse">Analysing your footage...</h3>
-                  <p className="text-indigo-300">Searching for activity and loitering patterns.</p>
-                </div>
+                <NeuralNetworkAnimation />
               )}
 
+              {/* Error State */}
               {selectedVideo.status === 'error' && (
-                <div className="border border-red-800 bg-red-900/20 rounded-xl p-8 text-center text-red-200">
-                  <svg className="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                  <h3 className="text-xl font-bold text-white mb-2">Analysis Failed</h3>
-                  <p className="mb-6">{selectedVideo.error_msg || 'An unknown error occurred during video processing.'}</p>
-                  <button onClick={() => startAnalysis(selectedVideo.video_id || selectedVideo.id)} className="px-6 py-2 bg-red-800 hover:bg-red-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-200">
-                    Retry Analysis
+                <div className="border border-hacker-red bg-black rounded-xl p-8 text-center glow-red">
+                  <div className="text-hacker-red text-3xl mb-4">{'[!]'}</div>
+                  <h3 className="text-lg font-bold text-hacker-red mb-2">Analysis Failed</h3>
+                  <p className="text-hacker-red/70 text-xs mb-6 font-mono">{selectedVideo.error_msg || 'UNKNOWN_ERROR'}</p>
+                  <button
+                    onClick={() => startAnalysis(selectedVideo.video_id || selectedVideo.id)}
+                    className="px-6 py-2 border border-hacker-red text-hacker-red hover:bg-hacker-red hover:text-black font-bold rounded text-xs transition-all"
+                  >
+                    {'>'} Retry Analysis
                   </button>
                 </div>
               )}
 
+              {/* Done State — Results */}
               {selectedVideo.status === 'done' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div>
                   {/* Stats Bar */}
                   <div className="grid grid-cols-3 gap-4 mb-8">
-                    <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl">
-                      <div className="text-sm text-slate-400 mb-1 font-medium">Total Events</div>
-                      <div className="text-3xl font-bold text-white">{events.length}</div>
+                    <div className="bg-neon-panel border border-neon-border p-4 rounded">
+                      <div className="text-[10px] text-neon-dark mb-1 uppercase tracking-wider">Total Events</div>
+                      <div className="text-2xl font-bold text-neon-green text-glow-green">{events.length}</div>
                     </div>
-                    <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl">
-                      <div className="text-sm text-slate-400 mb-1 font-medium">Critical Alerts</div>
-                      <div className={`text-3xl font-bold ${alerts.length > 0 ? 'text-red-400' : 'text-slate-300'}`}>{alerts.length}</div>
+                    <div className="bg-neon-panel border border-neon-border p-4 rounded">
+                      <div className="text-[10px] text-neon-dark mb-1 uppercase tracking-wider">Critical Alerts</div>
+                      <div className={`text-2xl font-bold ${alerts.length > 0 ? 'text-hacker-red text-glow-red' : 'text-neon-dim'}`}>{alerts.length}</div>
                     </div>
-                    <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl">
-                      <div className="text-sm text-slate-400 mb-1 font-medium">Footage Reviewed</div>
-                      <div className="text-3xl font-bold text-white">{formatTime(selectedVideo.duration_s || 0)}</div>
+                    <div className="bg-neon-panel border border-neon-border p-4 rounded">
+                      <div className="text-[10px] text-neon-dark mb-1 uppercase tracking-wider">Footage Duration</div>
+                      <div className="text-2xl font-bold text-neon-green">{formatTime(selectedVideo.duration_s || 0)}</div>
                     </div>
                   </div>
 
                   {events.length === 0 ? (
-                    <div className="border border-slate-700/50 bg-slate-800/30 rounded-xl p-16 text-center">
-                      <svg className="w-12 h-12 text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-                      </svg>
-                      <h3 className="text-xl font-semibold text-slate-300 mb-2">No activity detected</h3>
-                      <p className="text-slate-500">The AI scanned the footage but did not detect any persons.</p>
+                    <div className="border border-neon-border bg-neon-panel rounded-xl p-16 text-center">
+                      <div className="text-neon-dark text-2xl mb-4">{'[✓]'}</div>
+                      <h3 className="text-lg font-bold text-neon-dim mb-2">No activity detected</h3>
+                      <p className="text-neon-dark text-xs">The AI scanned the footage but did not detect any persons.</p>
                     </div>
                   ) : (
                     <div className="space-y-8 relative">
-
-                      {/* Alerts Section (Only if alerts > 0) */}
+                      {/* Alerts Section */}
                       {alerts.length > 0 && (
                         <div>
-                          <h3 className="text-lg font-bold text-red-500 mb-4 flex items-center gap-2 border-b border-red-900 pb-2">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                            Critical Alerts Requires Review
+                          <h3 className="text-sm font-bold text-hacker-red mb-3 flex items-center gap-2 border-b border-hacker-red/30 pb-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-hacker-red animate-pulse"></span>
+                            {'>'} CRITICAL ALERTS — REVIEW REQUIRED
                           </h3>
-                          <div className="flex flex-col gap-4">
+                          <div className="flex flex-col">
                             {alerts.map(a => <EventCard key={`alert-${a.id}`} event={a} isAlert={true} />)}
                           </div>
                         </div>
                       )}
 
-                      {/* Standard Timeline container */}
+                      {/* All Events */}
                       <div>
-                        {alerts.length > 0 && <h3 className="text-lg font-semibold text-white mt-8 mb-4 border-b border-slate-700 pb-2">All Activity</h3>}
-                        <div className="flex flex-col gap-4 border-l-2 border-slate-700/50 pl-4 py-2 ml-4">
+                        {alerts.length > 0 && <h3 className="text-sm font-bold text-neon-green mt-8 mb-3 border-b border-neon-border pb-2">{'>'} All Activity</h3>}
+                        <div className="flex flex-col border-l-2 border-neon-border/30 pl-4 py-2 ml-4">
                           {events.map(e => <EventCard key={`event-${e.id}`} event={e} isAlert={e.flagged} />)}
                         </div>
                       </div>
-
                     </div>
                   )}
 
-                  {/* About Detection Accuracy — collapsible info panel */}
-                  <div className="mt-12 border border-slate-700/50 rounded-lg overflow-hidden">
+                  {/* About Detection — collapsible */}
+                  <div className="mt-12 border border-neon-border rounded overflow-hidden">
                     <button
                       onClick={() => setShowLimitations(!showLimitations)}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/30 hover:bg-slate-800/50 transition-colors text-left"
+                      className="w-full flex items-center justify-between px-4 py-3 bg-neon-panel hover:bg-neon-dark/20 transition-colors text-left"
                     >
-                      <div className="flex items-center gap-2 text-slate-400 text-sm">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        <span className="font-medium">About Detection Accuracy</span>
-                      </div>
-                      <svg className={`w-4 h-4 text-slate-500 transition-transform ${showLimitations ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <span className="text-neon-dark text-[10px] uppercase tracking-wider font-bold">{'>'} About Detection Accuracy</span>
+                      <svg className={`w-3 h-3 text-neon-dark transition-transform ${showLimitations ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
                       </svg>
                     </button>
                     {showLimitations && (
-                      <div className="px-4 py-3 bg-slate-800/10 border-t border-slate-700/50">
-                        <ul className="space-y-1.5 text-xs text-slate-500 italic">
-                          <li>Person detection: ~85–90% accuracy on clear, well-lit footage</li>
-                          <li>Accuracy reduces in low light, heavy shadows, or very small subjects</li>
-                          <li>Processing time: approximately 15–30 seconds per minute of footage</li>
-                          <li>Loitering threshold: 15 continuous minutes</li>
-                          <li>Supported formats: MP4, AVI, MOV | Max file size: 500MB</li>
+                      <div className="px-4 py-3 bg-black border-t border-neon-border">
+                        <ul className="space-y-1 text-[10px] text-neon-dark">
+                          <li>• Person detection: ~85–90% accuracy on clear, well-lit footage</li>
+                          <li>• Accuracy reduces in low light, heavy shadows, or very small subjects</li>
+                          <li>• Processing: ~15–30 seconds per minute of footage</li>
+                          <li>• Loitering threshold: 15 continuous minutes</li>
+                          <li>• Supported: MP4, AVI, MOV | Max size: 500MB</li>
                         </ul>
                       </div>
                     )}
                   </div>
-
                 </div>
               )}
             </div>
@@ -529,30 +512,37 @@ export default function DashboardPage() {
         </main>
       </div>
 
-      {/* Clip Modal — with proper error state */}
+      {/* Clip Modal */}
       {modalEvent && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) setModalEvent(null);
           }}
         >
-          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-4xl w-full shadow-2xl relative overflow-hidden">
-            <button
-              className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center bg-black/50 hover:bg-red-500 rounded-full text-white transition-colors"
-              onClick={() => setModalEvent(null)}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
+          <div className="bg-neon-panel border border-neon-border rounded-lg max-w-4xl w-full shadow-2xl relative overflow-hidden">
+            {/* Terminal header */}
+            <div className="flex items-center justify-between px-4 py-2 bg-black border-b border-neon-border">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-hacker-red"></span>
+                <span className="w-2 h-2 rounded-full bg-hacker-yellow"></span>
+                <span className="w-2 h-2 rounded-full bg-neon-green"></span>
+                <span className="ml-2 text-[10px] text-neon-dark">clip_viewer.exe</span>
+              </div>
+              <button
+                className="text-neon-dim hover:text-hacker-red transition-colors text-xs"
+                onClick={() => setModalEvent(null)}
+              >
+                [✕] close
+              </button>
+            </div>
 
             <div className="bg-black aspect-video w-full flex items-center justify-center relative">
               {clipError ? (
-                <div className="flex flex-col items-center gap-3 text-slate-400">
-                  <svg className="w-12 h-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                  </svg>
-                  <p className="text-lg font-medium">Clip unavailable</p>
-                  <p className="text-sm text-slate-500">The video clip could not be loaded.</p>
+                <div className="flex flex-col items-center gap-3 text-neon-dark">
+                  <div className="text-3xl">{'[✕]'}</div>
+                  <p className="text-sm font-medium">Clip unavailable</p>
+                  <p className="text-xs">The video clip could not be loaded.</p>
                 </div>
               ) : (
                 <video
@@ -565,24 +555,25 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="p-6 border-t border-slate-800">
+            <div className="p-4 border-t border-neon-border">
               <div className="flex justify-between items-start">
                 <div>
                   {modalEvent.flagged ? (
-                    <h4 className="text-xl font-bold text-red-500 mb-1 flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span> {modalEvent.label === 'weapon_detected' ? 'Weapon Alert Recorded' : 'Loitering Alert Recorded'}
+                    <h4 className="text-sm font-bold text-hacker-red mb-1 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-hacker-red animate-pulse"></span>
+                      {modalEvent.label === 'weapon_detected' ? 'WEAPON ALERT' : 'LOITERING ALERT'}
                     </h4>
                   ) : (
-                    <h4 className="text-xl font-semibold text-white mb-1">Person Detected</h4>
+                    <h4 className="text-sm font-bold text-neon-green mb-1">Person Detected</h4>
                   )}
-                  <div className="text-slate-400">
-                    Timestamp: <span className="font-semibold text-slate-200">at {formatTime(modalEvent.start_time)}</span>
-                    {modalEvent.duration_s && `  •  Duration: ${formatMinutes(modalEvent.duration_s)}m ${Math.floor(modalEvent.duration_s % 60)}s`}
+                  <div className="text-neon-dim text-xs">
+                    <span className="text-neon-dark">time:</span> {formatTime(modalEvent.start_time)}
+                    {modalEvent.duration_s && <span className="ml-3"><span className="text-neon-dark">dur:</span> {formatMinutes(modalEvent.duration_s)}m {Math.floor(modalEvent.duration_s % 60)}s</span>}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm text-slate-500 mb-1">AI Confidence</div>
-                  <div className="text-lg font-mono font-bold text-indigo-400">{Math.round(modalEvent.confidence * 100)}%</div>
+                  <div className="text-[10px] text-neon-dark uppercase">Confidence</div>
+                  <div className="text-lg font-bold text-neon-green">{Math.round(modalEvent.confidence * 100)}%</div>
                 </div>
               </div>
             </div>
