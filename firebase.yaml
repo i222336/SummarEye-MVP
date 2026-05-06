@@ -1,0 +1,6 @@
+# The firebase.yaml file is used to configure App Hosting.
+# Learn more at https://firebase.google.com/docs/app-hosting/firebase-yaml
+version: 1
+services:
+  - id: backend  # An ID for your service
+    source: backend  # The directory containing your backend code
