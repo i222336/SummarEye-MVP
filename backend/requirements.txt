@@ -3,7 +3,7 @@ sqlalchemy
 passlib
 python-jose
 bcrypt
-psycopg2-binary
+mysql-connector-python
 fastapi-cors
 aiofiles
 python-multipart
